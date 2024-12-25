@@ -61,10 +61,8 @@ def handle_client(client, publicKey, privateKey, clientKey):
         # Recieve messages from the client
         while 1:
             message = client.recv(4096)
-            print(message)
 
             if message == b'':
-                print(f"removing {username}:{client}")
                 remove_client(client, username)
                 return
 

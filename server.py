@@ -4,7 +4,8 @@ from cryptidy import asymmetric_encryption as ae
 # Some server constants
 HOST = "0.0.0.0"
 PORT = 5556
-MAX_USERNAME_LENGTH = 20
+USERNAME_MAX_LENGTH = 20
+USERNAME_ALLOW_SPACES = False
 SERVER_VERSION = 0.0
 
 # Server variables
@@ -14,7 +15,7 @@ users = []
 
 
 # Send a message to all clients except the sender
-def send_message(sender, message):
+def send_message(message, sender=None):
     # Loop over all of the connected clients
     for i in range(len(clients)):
         # Check if the current client is the sender, if it is, skip it
@@ -42,26 +43,43 @@ def handle_client(client, publicKey, privateKey, clientKey):
             if message == "START_CONNECTION":
                 # Start recieving messages from client
                 Recieving = True
+                send_message(f"{username} Joined the chat")
 
             elif message == "START_NAME_TRANSFER":
                 # encrypt the username info to send
-                info = ae.encrypt_message(MAX_USERNAME_LENGTH, clientKey)
+                info = ae.encrypt_message(USERNAME_MAX_LENGTH, clientKey)
                 client.send(info)
 
+                usernameAccepted = False
+                while not usernameAccepted:
+                    # recieve the username from the user
+                    username = client.recv(4096)
+                    time, username = ae.decrypt_message(username, privateKey)
 
-                username = client.recv(4096)
-                time, username = ae.decrypt_message(username, privateKey)
+                    status = ae.encrypt_message("VALID", clientKey)
+                    usernameAccepted = True
 
+                    #check if the username is valid
+                    if len(username) > USERNAME_MAX_LENGTH:
+                        status = ae.encrypt_message("INVALID", clientKey)
+                        usernameAccepted = False
+
+                    if " " in username and not USERNAME_ALLOW_SPACES:
+                        status = ae.encrypt_message("INVALID", clientKey)
+                        usernameAccepted = False
+
+                    client.send(status)
+
+                # append the accepted name into the list
                 users.append(username)
-                print(f"{username} joined the chat")
-
-
-            print(message)
 
         # Recieve messages from the client
         while 1:
             message = client.recv(4096)
 
+            # If the message is completely empty, (this occurs when someone
+            # Leaves), remove the user from all lists, and break the
+            # connection to prevent ERROR 32: broken pipe
             if message == b'':
                 remove_client(client, username)
                 return
@@ -69,10 +87,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
             time, message = ae.decrypt_message(message, privateKey)
 
             print(time, username,  message)
-            send_message(client, f"{username}: {message}")
-
-
-            # This next part should self-explanetory
+            send_message(f"{username}: {message}", client)
 
     except Exception as error:
         print(f"Error: {error}")
@@ -87,6 +102,8 @@ def remove_client(client, username):
 
     client.close()
 
+    send_message(f"{username} Left the chat")
+
 
 # Guess what this does
 def run_server():
@@ -95,7 +112,6 @@ def run_server():
     # Initialise the keys
     print("creating keypair...")
     privateKey, publicKey = ae.generate_keys(4096)
-    print(publicKey, privateKey)
 
     print("setting up socket...")
     # Initialise the server

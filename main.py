@@ -7,33 +7,41 @@ def run_client(privateKey, publicKey):
     # prompt user for host and port
     host = input("host: ")
     port = int(input("port: "))
-    username = input("username: ")
 
     # setup client socket
     clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientSocket.connect((host, port))
 
+    # recieve the server Key
     serverKey = clientSocket.recv(4069).decode('utf-8')
 
-    print(serverKey)
-
-    # encrypt public key and send it to the server
+    # send the public key to the server
     send_server(clientSocket, publicKey, serverKey)
-    print(publicKey)
 
     # start the username transfer
     send_server(clientSocket, "START_NAME_TRANSFER", serverKey)
-    print(1)
 
+    # Recieve the max length for usernames
     time, maxUserLength = recv_server(clientSocket, privateKey)
 
-    send_server(clientSocket, username, serverKey)
-    print(2)
+    usernameStatus = "INVALID"
+
+    #continue prompting for username until it meets server requirements
+    while usernameStatus != "VALID":
+
+        print(f"username must be less than {maxUserLength} chars")
+
+        #prompt the user for their name
+        username = input("username: ")
+
+        # Send the username to the server
+        send_server(clientSocket, username, serverKey)
+
+        time, usernameStatus = recv_server(clientSocket, privateKey)
+        print(usernameStatus)
 
     # tell the server we are ready to start sending messages
     send_server(clientSocket, "START_CONNECTION", serverKey)
-    print(3)
-    sleep(1)
 
     #start sending messages
     threading.Thread(target=recieve_messages, args=(clientSocket, privateKey,), daemon=True).start()

@@ -18,6 +18,8 @@ def run_client(privateKey, publicKey):
     # send the public key to the server
     send_server(clientSocket, publicKey, serverKey)
 
+    recv_server(clientSocket, privateKey)
+
     # start the username transfer
     send_server(clientSocket, "START_NAME_TRANSFER", serverKey)
 
@@ -76,7 +78,7 @@ def send_server(socket, message, serverKey):
 # get and decrypt a message from the server
 def recv_server(socket, privateKey):
     message = socket.recv(4096)
-    time, message = ae.decrypt_message(message, privateKey)
+    time, message = ae.decrypt_message(message, privateKey, error_handling=2)
     return time, message
 
 

@@ -15,9 +15,13 @@ def run_client(privateKey, publicKey):
     # recieve the server Key
     serverKey = clientSocket.recv(4069).decode('utf-8')
 
+    # From this point onwards we only use asymmetrical encryption
+    # Messages must be encrypted with the servers public key
+
     # send the public key to the server
     send_server(clientSocket, publicKey, serverKey)
 
+    # Wait for the server to ping us
     recv_server(clientSocket, privateKey)
 
     # start the username transfer

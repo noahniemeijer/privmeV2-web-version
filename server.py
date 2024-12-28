@@ -9,9 +9,14 @@ USERNAME_ALLOW_SPACES = False
 SERVER_VERSION = 0.0
 
 # Server variables
-clients = []      # These variables are synced
+clients = []    # These variables are synced
 keys = []       # This means users[1] corresponds to keys[1]
 users = []
+groups = []     # This one is complicated, it is a list of lists, every group is stored as a
+                # seperate list, and indexed as groups[i][j], where i is the index of the group
+                # and j is the index of the client
+groupNames = [] # This list simply contains the names of all the groups, in order
+                # meaning groupNames[1] is the name of group[1]
 
 
 # Send a message to all clients except the sender
@@ -31,6 +36,10 @@ def send_message(message, sender=None):
 # This function is run for every connected client
 def handle_client(client, publicKey, privateKey, clientKey):
 
+    # Tell the client to continue
+    message = ae.encrypt_message("OK", clientKey)
+    client.send(message)
+
     # Start the handshake
     Recieving = False
 
@@ -38,7 +47,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
         while not Recieving:
             # Setup the connection as per the clients requests
             message = client.recv(4096)
-            time, message = ae.decrypt_message(message, privateKey)
+            time, message = ae.decrypt_message(message, privateKey, error_handling=2)
 
             if message == "START_CONNECTION":
                 # Start recieving messages from client
@@ -54,7 +63,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 while not usernameAccepted:
                     # recieve the username from the user
                     username = client.recv(4096)
-                    time, username = ae.decrypt_message(username, privateKey)
+                    time, username = ae.decrypt_message(username, privateKey, error_handling=2)
 
                     status = ae.encrypt_message("VALID", clientKey)
                     usernameAccepted = True
@@ -84,13 +93,14 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 remove_client(client, username)
                 return
 
-            time, message = ae.decrypt_message(message, privateKey)
+            time, message = ae.decrypt_message(message, privateKey, error_handling=2)
 
             print(time, username,  message)
             send_message(f"{username}: {message}", client)
 
     except Exception as error:
         print(f"Error: {error}")
+        remove_client(client, username)
 
 
 # Removes a client
@@ -135,7 +145,7 @@ def run_server():
 
         # Recieve clients public key and decrypt it
         clientKey = client.recv(4096)
-        time, clientKey = ae.decrypt_message(clientKey, privateKey)
+        time, clientKey = ae.decrypt_message(clientKey, privateKey, error_handling=2)
 
         # Add the key to the list of keys
         keys.append(clientKey)

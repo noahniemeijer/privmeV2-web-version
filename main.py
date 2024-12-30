@@ -1,6 +1,6 @@
 import socket, threading
 from time import sleep
-from cryptidy import asymmetric_encryption as ae
+import asymmetric_encryption as ae
 
 # guess what this does
 def run_client(privateKey, publicKey):
@@ -82,7 +82,7 @@ def send_server(socket, message, serverKey):
 # get and decrypt a message from the server
 def recv_server(socket, privateKey):
     message = socket.recv(4096)
-    time, message = ae.decrypt_message(message, privateKey, error_handling=2)
+    time, message = ae.decrypt_message(message, privateKey)
     return time, message
 
 

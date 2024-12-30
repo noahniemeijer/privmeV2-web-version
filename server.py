@@ -1,5 +1,5 @@
 import socket, threading
-from cryptidy import asymmetric_encryption as ae
+import asymmetric_encryption as ae
 
 # Some server constants
 HOST = "0.0.0.0"
@@ -47,7 +47,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
         while not Recieving:
             # Setup the connection as per the clients requests
             message = client.recv(4096)
-            time, message = ae.decrypt_message(message, privateKey, error_handling=2)
+            time, message = ae.decrypt_message(message, privateKey)
 
             if message == "START_CONNECTION":
                 # Start recieving messages from client
@@ -63,7 +63,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 while not usernameAccepted:
                     # recieve the username from the user
                     username = client.recv(4096)
-                    time, username = ae.decrypt_message(username, privateKey, error_handling=2)
+                    time, username = ae.decrypt_message(username, privateKey)
 
                     status = ae.encrypt_message("VALID", clientKey)
                     usernameAccepted = True
@@ -93,7 +93,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 remove_client(client, username)
                 return
 
-            time, message = ae.decrypt_message(message, privateKey, error_handling=2)
+            time, message = ae.decrypt_message(message, privateKey)
 
             print(time, username,  message)
             send_message(f"{username}: {message}", client)
@@ -145,7 +145,7 @@ def run_server():
 
         # Recieve clients public key and decrypt it
         clientKey = client.recv(4096)
-        time, clientKey = ae.decrypt_message(clientKey, privateKey, error_handling=2)
+        time, clientKey = ae.decrypt_message(clientKey, privateKey)
 
         # Add the key to the list of keys
         keys.append(clientKey)

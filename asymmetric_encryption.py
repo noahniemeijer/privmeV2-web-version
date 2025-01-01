@@ -5,8 +5,15 @@ import datetime
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Cipher import PKCS1_OAEP, AES
-from Cryptodome.Hash import SHA384
+from Cryptodome.Hash import SHA384, SHA512
 import pickle
+
+
+def generate_hash(data):
+    data = bytes(data, 'utf-8')
+    hashContainer = SHA512.SHA512Hash(data, '256')
+    return hashContainer.hexdigest()
+
 
 def generate_keys(length):
     if length < 1024:

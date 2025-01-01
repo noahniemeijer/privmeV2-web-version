@@ -89,6 +89,16 @@ def group_transfer(clientSocket, privateKey, serverKey):
             if status == "BAD":
                 print(f"invalid group {group}")
                 continue
+
+            password = input("password: ")
+            password = ae.generate_hash(password)
+            send_server(clientSocket, password, serverKey)# 7
+
+            time, status = recv_server(clientSocket, privateKey)
+            if status == "INCORRECT":
+                print("password is incorrect")
+                continue
+
             break
 
         else:
@@ -110,6 +120,11 @@ def group_transfer(clientSocket, privateKey, serverKey):
             if status == "BAD":
                 print("group already exists")
                 continue
+
+            password = input("password: ")
+            password = ae.generate_hash(password)
+            send_server(clientSocket, password, serverKey)# 7
+
             break
 
 

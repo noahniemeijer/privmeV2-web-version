@@ -17,6 +17,7 @@ groups = []     # This one is complicated, it is a list of lists, every group is
                 # and j is the index of the client
 groupNames = [] # This list simply contains the names of all the groups, in order
                 # meaning groupNames[1] is the name of group[1]
+groupHashes = []# Hahed passwords for each group
 
 
 # Send a message to all clients except the sender
@@ -31,7 +32,7 @@ def send_message(message, sender=None, inclusive=False):
 
                 msg = ae.encrypt_message(message, clientKey)
                 i.send(msg)
-            return 0
+            return
 
     for i in range(len(clients)):
         msg = ae.encrypt_message(message, keys[i])
@@ -71,7 +72,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
                     # recieve the username from the user
                     username = client.recv(4096)
                     if username == b'':
-                        return 1
+                        return
                     time, username = ae.decrypt_message(username, privateKey)
 
                     status = ae.encrypt_message("VALID", clientKey)
@@ -119,14 +120,29 @@ def handle_client(client, publicKey, privateKey, clientKey):
                             continue
 
                         if group not in groupNames:
-                            status = ae.encrypt_message("BAD", clientKey) #TODO make bad status not brick everything
+                            status = ae.encrypt_message("BAD", clientKey)
                             client.send(status) # 6
                             continue
 
                         status = ae.encrypt_message("OK", clientKey)
                         client.send(status) # 6
 
+                        password = client.recv(4096) # 7
+                        if password == b'':
+                            remove_client(client, username)
+                            return
+                        time, password = ae.decrypt_message(password, privateKey)
+
                         groupId = groupNames.index(group)
+
+                        if groupHashes[groupId] == password:
+                            status = ae.encrypt_message("OK", clientKey)
+                            client.send(status) # 8
+                        else:
+                            status = ae.encrypt_message("INCORRECT", clientKey)
+                            client.send(status)
+                            continue
+
                         groups[groupId].append(client)
                         break
 
@@ -146,10 +162,17 @@ def handle_client(client, publicKey, privateKey, clientKey):
                         status = ae.encrypt_message("OK", clientKey)
                         client.send(status) # 6
 
+                        password = client.recv(4096) # 7
+                        if password == b'':
+                            remove_client(client, username)
+                            return
+                        time, password = ae.decrypt_message(password, privateKey)
+
                         groupId = len(groups)
                         groups.append([])
                         groups[groupId].append(client)
                         groupNames.append(group)
+                        groupHashes.append(password)
                         break
 
         # Recieve messages from the client
@@ -196,7 +219,8 @@ def remove_client(client, username):
 
     client.close()
 
-    send_message(f"{username} Left the chat", groupId, True)
+    if groupId != None:
+        send_message(f"{username} Left the chat", groupId, True)
 
 
 # Guess what this does

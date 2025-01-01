@@ -21,13 +21,19 @@ groupNames = [] # This list simply contains the names of all the groups, in orde
 
 # Send a message to all clients except the sender
 def send_message(message, sender=None):
-    # Loop over all of the connected clients
-    for i in range(len(clients)):
-        # Check if the current client is the sender, if it is, skip it
-        if clients[i] == sender:
-            continue
+    for group in groups:
+        if sender in group:
+            for i in group:
+                if i == sender: continue
 
-        # Send the message to the client with their respective key
+                clientId = clients.index(i)
+                clientKey = keys[clientId]
+
+                msg = ae.encrypt_message(message, clientKey)
+                i.send(msg)
+            return 0
+
+    for i in range(len(clients)):
         msg = ae.encrypt_message(message, keys[i])
         clients[i].send(msg)
 
@@ -77,10 +83,59 @@ def handle_client(client, publicKey, privateKey, clientKey):
                         status = ae.encrypt_message("INVALID", clientKey)
                         usernameAccepted = False
 
+                    if username in users:
+                        status = ae.encrypt_message("USERNAME TAKEN", clientKey)
+                        usernameAccepted = False
+
                     client.send(status)
 
                 # append the accepted name into the list
                 users.append(username)
+
+            elif message == "START_GROUP_SELECT":
+                print("starting group selection")
+                info = ae.encrypt_message(groupNames, clientKey)
+                client.send(info)
+                print("sent info")
+
+                action = client.recv(4096)
+                time, action = ae.decrypt_message(action, privateKey)
+
+                status = ae.encrypt_message("OK", clientKey)
+                client.send(status)
+
+                if action == "join":
+                    group = client.recv(4096)
+                    time, group = ae.decrypt_message(group, privateKey)
+
+                    status = ae.encrypt_message("OK", clientKey)
+
+                    if group not in groupNames:
+                        status = ae.encrypt_message("BAD", clientKey)
+
+                    client.send(status)
+
+                    groupId = groupNames.index(group)
+                    groups[groupId].append(client)
+                    print(groupId, groups, groupNames)
+
+                elif action == "create":
+                    group = client.recv(4096)
+                    time, group = ae.decrypt_message(group, privateKey)
+
+                    status = ae.encrypt_message("OK", clientKey)
+
+                    if group in groupNames:
+                        status = ae.encrypt_message("BAD", clientKey)
+
+                    client.send(status)
+
+                    groupId = len(groups)
+                    groups.append([])
+                    groups[groupId].append(client)
+                    groupNames.append(group)
+
+                    print(groupId, groups, groupNames)
 
         # Recieve messages from the client
         while 1:
@@ -110,9 +165,22 @@ def remove_client(client, username):
     keys.pop(clientId)
     users.remove(username)
 
+    for i in groups:
+        if client in i:
+            groupId = groups.index(i)
+            break
+
+    clientId = groups[groupId].index(client)
+    groups[groupId].pop(clientId)
+
+    if groups[groupId] == []:
+        groups.pop(groupId)
+        groupNames.pop(groupId)
+
     client.close()
 
     send_message(f"{username} Left the chat")
+    print(groups, groupNames)
 
 
 # Guess what this does

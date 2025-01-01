@@ -24,6 +24,19 @@ def run_client(privateKey, publicKey):
     # Wait for the server to ping us
     recv_server(clientSocket, privateKey)
 
+    username_transfer(clientSocket, privateKey, serverKey)
+
+    group_transfer(clientSocket, privateKey, serverKey)
+
+    # tell the server we are ready to start sending messages
+    send_server(clientSocket, "START_CONNECTION", serverKey)
+
+    #start sending messages
+    threading.Thread(target=recieve_messages, args=(clientSocket, privateKey,), daemon=True).start()
+    send_messages(clientSocket, serverKey)
+
+
+def username_transfer(clientSocket, privateKey, serverKey):
     # start the username transfer
     send_server(clientSocket, "START_NAME_TRANSFER", serverKey)
 
@@ -46,12 +59,42 @@ def run_client(privateKey, publicKey):
         time, usernameStatus = recv_server(clientSocket, privateKey)
         print(usernameStatus)
 
-    # tell the server we are ready to start sending messages
-    send_server(clientSocket, "START_CONNECTION", serverKey)
 
-    #start sending messages
-    threading.Thread(target=recieve_messages, args=(clientSocket, privateKey,), daemon=True).start()
-    send_messages(clientSocket, serverKey)
+def group_transfer(clientSocket, privateKey, serverKey):
+    send_server(clientSocket, "START_GROUP_SELECT", serverKey)
+
+    time, groups = recv_server(clientSocket, privateKey)
+
+    print(f"there are {len(groups)} groups:")
+    print(groups)
+
+    action = input("do you want to [join] or [create] a group (join): ")
+    if action != "create":
+        send_server(clientSocket, "join", serverKey)
+
+        time, status = recv_server(clientSocket, privateKey)
+
+        group = input("which group would you like to join?: ")
+
+        send_server(clientSocket, group, serverKey)
+
+        time, status = recv_server(clientSocket, privateKey)
+        if status == "BAD":
+            raise ValueError(f"invalid group {group}")
+
+    else:
+        send_server(clientSocket, "create", serverKey)
+
+        recv_server(clientSocket, privateKey)
+
+        group = input("enter name of group: ")
+
+        send_server(clientSocket, group, serverKey)
+
+        time, status = recv_server(clientSocket, privateKey)
+        if status == "BAD":
+            raise ValueError("group already exists")
+
 
 
 # listen for messages from the server

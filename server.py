@@ -70,6 +70,8 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 while not usernameAccepted:
                     # recieve the username from the user
                     username = client.recv(4096)
+                    if username == b'':
+                        return 1
                     time, username = ae.decrypt_message(username, privateKey)
 
                     status = ae.encrypt_message("VALID", clientKey)
@@ -95,43 +97,60 @@ def handle_client(client, publicKey, privateKey, clientKey):
 
             elif message == "START_GROUP_SELECT":
                 info = ae.encrypt_message(groupNames, clientKey)
-                client.send(info)
+                client.send(info) # 2
 
-                action = client.recv(4096)
-                time, action = ae.decrypt_message(action, privateKey)
+                while 1:
 
-                status = ae.encrypt_message("OK", clientKey)
-                client.send(status)
-
-                if action == "join":
-                    group = client.recv(4096)
-                    time, group = ae.decrypt_message(group, privateKey)
+                    action = client.recv(4096) # 3
+                    if action == b'':
+                        remove_client(client, username)
+                        return
+                    time, action = ae.decrypt_message(action, privateKey)
 
                     status = ae.encrypt_message("OK", clientKey)
+                    client.send(status) # 4
 
-                    if group not in groupNames:
-                        status = ae.encrypt_message("BAD", clientKey) #TODO make bad status not brick everything
+                    if action == "join":
+                        group = client.recv(4096) # 5
+                        time, group = ae.decrypt_message(group, privateKey)
+                        if group == 0x01:
+                            status = ae.encrypt_message("OK", clientKey)
+                            client.send(status) #6
+                            continue
 
-                    client.send(status)
+                        if group not in groupNames:
+                            status = ae.encrypt_message("BAD", clientKey) #TODO make bad status not brick everything
+                            client.send(status) # 6
+                            continue
 
-                    groupId = groupNames.index(group)
-                    groups[groupId].append(client)
+                        status = ae.encrypt_message("OK", clientKey)
+                        client.send(status) # 6
 
-                elif action == "create":
-                    group = client.recv(4096)
-                    time, group = ae.decrypt_message(group, privateKey)
+                        groupId = groupNames.index(group)
+                        groups[groupId].append(client)
+                        break
 
-                    status = ae.encrypt_message("OK", clientKey)
+                    elif action == "create":
+                        group = client.recv(4096) # 5
+                        time, group = ae.decrypt_message(group, privateKey)
+                        if group == 0x01:
+                            status = ae.encrypt_message("OK", clientKey)
+                            client.send(status) #6
+                            continue
 
-                    if group in groupNames:
-                        status = ae.encrypt_message("BAD", clientKey)
+                        if group in groupNames:
+                            status = ae.encrypt_message("BAD", clientKey)
+                            client.send(status) # 6
+                            continue
 
-                    client.send(status)
+                        status = ae.encrypt_message("OK", clientKey)
+                        client.send(status) # 6
 
-                    groupId = len(groups)
-                    groups.append([])
-                    groups[groupId].append(client)
-                    groupNames.append(group)
+                        groupId = len(groups)
+                        groups.append([])
+                        groups[groupId].append(client)
+                        groupNames.append(group)
+                        break
 
         # Recieve messages from the client
         while 1:
@@ -155,6 +174,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
 
 # Removes a client
 def remove_client(client, username):
+    groupId = None
     clientId = clients.index(client)
     clients.pop(clientId)
     keys.pop(clientId)
@@ -165,16 +185,18 @@ def remove_client(client, username):
             groupId = groups.index(i)
             break
 
-    clientId = groups[groupId].index(client)
-    groups[groupId].pop(clientId)
 
-    if groups[groupId] == []:
-        groups.pop(groupId)
-        groupNames.pop(groupId)
+    if groupId != None:
+        clientId = groups[groupId].index(client)
+        groups[groupId].pop(clientId)
+
+        if groups[groupId] == []:
+            groups.pop(groupId)
+            groupNames.pop(groupId)
 
     client.close()
 
-    send_message(f"{username} Left the chat")
+    send_message(f"{username} Left the chat", groupId, True)
 
 
 # Guess what this does

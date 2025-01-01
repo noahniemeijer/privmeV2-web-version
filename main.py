@@ -61,39 +61,56 @@ def username_transfer(clientSocket, privateKey, serverKey):
 
 
 def group_transfer(clientSocket, privateKey, serverKey):
-    send_server(clientSocket, "START_GROUP_SELECT", serverKey)
+    send_server(clientSocket, "START_GROUP_SELECT", serverKey) # 1
 
-    time, groups = recv_server(clientSocket, privateKey)
+    time, groups = recv_server(clientSocket, privateKey) # 2
 
     print(f"there are {len(groups)} groups:")
     print(groups)
 
-    action = input("do you want to [join] or [create] a group (join): ")
-    if action != "create":
-        send_server(clientSocket, "join", serverKey)
+    while 1:
+        action = input("do you want to [join] or [create] a group (join): ")
+        if action != "create":
+            send_server(clientSocket, "join", serverKey) # 3
 
-        time, status = recv_server(clientSocket, privateKey)
+            time, status = recv_server(clientSocket, privateKey) # 4
 
-        group = input("which group would you like to join?: ")
+            try:
+                group = input("which group would you like to join?: ")
+            except KeyboardInterrupt:
+                send_server(clientSocket, 0x01, serverKey) # 5
+                recv_server(clientSocket, privateKey) # 6
+                print('\n')
+                continue
 
-        send_server(clientSocket, group, serverKey)
+            send_server(clientSocket, group, serverKey) # 5
 
-        time, status = recv_server(clientSocket, privateKey)
-        if status == "BAD":
-            raise ValueError(f"invalid group {group}")
+            time, status = recv_server(clientSocket, privateKey) # 6
+            if status == "BAD":
+                print(f"invalid group {group}")
+                continue
+            break
 
-    else:
-        send_server(clientSocket, "create", serverKey)
+        else:
+            send_server(clientSocket, "create", serverKey) # 3
 
-        recv_server(clientSocket, privateKey)
+            recv_server(clientSocket, privateKey) # 4
 
-        group = input("enter name of group: ")
+            try:
+                group = input("enter name of group: ")
+            except KeyboardInterrupt:
+                send_server(clientSocket, 0x01, serverKey) # 5
+                recv_server(clientSocket, privateKey) # 6
+                print('\n')
+                continue
 
-        send_server(clientSocket, group, serverKey)
+            send_server(clientSocket, group, serverKey) # 5
 
-        time, status = recv_server(clientSocket, privateKey)
-        if status == "BAD":
-            raise ValueError("group already exists")
+            time, status = recv_server(clientSocket, privateKey) # 6
+            if status == "BAD":
+                print("group already exists")
+                continue
+            break
 
 
 

@@ -150,6 +150,11 @@ def recieve_messages(client, privateKey):
     while 1:
         # recieve a 4096 bit block of data and decrypt it
         time, message = recv_server(client, privateKey)
+
+        if message == "SPAM":
+            raise Exception("stop spamming nerd")
+            quit()
+
         # print it to the screen
         print(time, message)
 

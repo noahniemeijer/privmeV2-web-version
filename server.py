@@ -15,6 +15,7 @@
 # along with PrivMe. If not, see <https://www.gnu.org/licenses/>.
 
 import socket, threading
+from time import sleep
 import asymmetric_encryption as ae
 
 # Some server constants
@@ -34,6 +35,23 @@ groups = []     # This one is complicated, it is a list of lists, every group is
 groupNames = [] # This list simply contains the names of all the groups, in order
                 # meaning groupNames[1] is the name of group[1]
 groupHashes = []# Hahed passwords for each group
+
+
+class message_reciever:
+    def __init__(self, client):
+        self.messageCache = []
+        self.client = client
+
+    def recieve_messages(self):
+        while 1:
+            try:
+                message = self.client.recv(4096)
+            except OSError:
+                print("woopsie someone got kicked")
+                return
+            self.messageCache.append(message)
+            if message == b'':
+                break
 
 
 # Send a message to all clients except the sender
@@ -191,9 +209,21 @@ def handle_client(client, publicKey, privateKey, clientKey):
                         groupHashes.append(password)
                         break
 
+        cache = message_reciever(client)
+        threading.Thread(target=cache.recieve_messages, daemon=True).start()
+
         # Recieve messages from the client
         while 1:
-            message = client.recv(4096)
+            sleep(0.2)
+            if len(cache.messageCache) == 0:
+                continue
+            elif len(cache.messageCache) > 3:
+                print("SPAM DETECTED")
+                status = ae.encrypt_message("SPAM", clientKey)
+                client.send(status)
+                cache.messageCache = [b'']
+            message = cache.messageCache[0]
+
 
             # If the message is completely empty, (this occurs when someone
             # Leaves), remove the user from all lists, and break the
@@ -205,6 +235,7 @@ def handle_client(client, publicKey, privateKey, clientKey):
             time, message = ae.decrypt_message(message, privateKey)
 
             send_message(f"{username}: {message}", client)
+            cache.messageCache.pop(0)
 
     except Exception as error:
         print(f"Error: {error}")

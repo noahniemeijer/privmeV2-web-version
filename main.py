@@ -164,6 +164,8 @@ def send_messages(client, serverKey):
     while 1:
         # get input and encrypt it using the servers public key
         message = input()
+        if message == b'':
+            print("your message has been blocked because it is empty")
 
         # send the message to the server
         send_server(client, message, serverKey)

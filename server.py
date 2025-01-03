@@ -233,6 +233,8 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 return
 
             time, message = ae.decrypt_message(message, privateKey)
+            if message == b'':
+                continue
 
             send_message(f"{username}: {message}", client)
             cache.messageCache.pop(0)

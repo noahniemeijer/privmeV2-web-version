@@ -106,14 +106,19 @@ def group_transfer(clientSocket, privateKey, serverKey):
                 print(f"invalid group {group}")
                 continue
 
-            password = input("password: ")
-            password = ae.generate_hash(password)
-            send_server(clientSocket, password, serverKey)# 7
+            elif status == "NO PASSWORD":
+                print("this server does not have a password")
+                print("proceed with caution")
 
-            time, status = recv_server(clientSocket, privateKey)
-            if status == "INCORRECT":
-                print("password is incorrect")
-                continue
+            else:
+                password = input("password: ")
+                password = ae.generate_hash(password)
+                send_server(clientSocket, password, serverKey)# 7
+
+                time, status = recv_server(clientSocket, privateKey) # 8
+                if status == "INCORRECT":
+                    print("password is incorrect")
+                    continue
 
             break
 
@@ -138,7 +143,8 @@ def group_transfer(clientSocket, privateKey, serverKey):
                 continue
 
             password = input("password: ")
-            password = ae.generate_hash(password)
+            if password != "":
+                password = ae.generate_hash(password)
             send_server(clientSocket, password, serverKey)# 7
 
             break
@@ -164,7 +170,7 @@ def send_messages(client, serverKey):
     while 1:
         # get input and encrypt it using the servers public key
         message = input()
-        if message == b'':
+        if bytes(message, 'utf-8') == b'':
             print("your message has been blocked because it is empty")
 
         # send the message to the server

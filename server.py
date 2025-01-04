@@ -158,24 +158,29 @@ def handle_client(client, publicKey, privateKey, clientKey):
                             client.send(status) # 6
                             continue
 
-                        status = ae.encrypt_message("OK", clientKey)
-                        client.send(status) # 6
-
-                        password = client.recv(4096) # 7
-                        if password == b'':
-                            remove_client(client, username)
-                            return
-                        time, password = ae.decrypt_message(password, privateKey)
-
                         groupId = groupNames.index(group)
 
-                        if groupHashes[groupId] == password:
-                            status = ae.encrypt_message("OK", clientKey)
-                            client.send(status) # 8
+                        if groupHashes[groupId] == "":
+                            status = ae.encrypt_message("NO PASSWORD", clientKey)
+                            client.send(status) # 6
                         else:
-                            status = ae.encrypt_message("INCORRECT", clientKey)
-                            client.send(status)
-                            continue
+                            status = ae.encrypt_message("OK", clientKey)
+
+                            client.send(status) # 6
+
+                            password = client.recv(4096) # 7
+                            if password == b'':
+                                remove_client(client, username)
+                                return
+                            time, password = ae.decrypt_message(password, privateKey)
+
+                            if groupHashes[groupId] == password:
+                                status = ae.encrypt_message("OK", clientKey)
+                                client.send(status) # 8
+                            else:
+                                status = ae.encrypt_message("INCORRECT", clientKey)
+                                client.send(status)
+                                continue
 
                         groups[groupId].append(client)
                         break
@@ -233,7 +238,8 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 return
 
             time, message = ae.decrypt_message(message, privateKey)
-            if message == b'':
+            if bytes(message, 'utf-8') == b'':
+                cache.messageCache.pop(0)
                 continue
 
             send_message(f"{username}: {message}", client)

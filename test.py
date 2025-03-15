@@ -12,12 +12,19 @@ try:
     #nc.draw_text_overflow(screen, 18, 88, "yooooo wsp gang")
     #nc.draw_text(screen, 20, 86, "yooooo wsp gang")
 
-    response = nc.get_input(screen,
+    nc.draw_text_overflow(screen,
                             maxY//2,
-                            maxX//2-(len("what is the ip")//2),
+                            maxX//2-(len("what is the ip?")//2),
                             "what is the ip?")
-    nc.clear_line(screen,
+
+    response = nc.get_input(screen,
+                            maxY//2+2,
+                            maxX//2-(len("what is the ip")//2+1),
+                            "")
+
+    nc.clear_block(screen,
                   maxY//2,
+                  maxY//2+2,
                   0,
                   0)
 

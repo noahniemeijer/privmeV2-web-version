@@ -198,6 +198,11 @@ def handle_client(client, publicKey, privateKey, clientKey):
                             client.send(status) # 6
                             continue
 
+                        if len(group) > 20:
+                            status = ae.encrypt_message("TOO LONG", clientKey)
+                            client.send(status) #6
+                            continue
+
                         status = ae.encrypt_message("OK", clientKey)
                         client.send(status) # 6
 

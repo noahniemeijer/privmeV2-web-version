@@ -75,6 +75,15 @@ def clear_line(stdscr, y, startX, stopX):
         stdscr.addstr(y, startX+i, " ")
 
 
+def clear_block(stdscr, startY, stopY, startX, stopX):
+    maxY, maxX = stdscr.getmaxyx()
+    if stopY == 0 or stopY > maxY:
+        stopY = maxY
+
+    for i in range(startY, stopY+1):
+        clear_line(stdscr, i, startX, stopX)
+
+
 def get_input(stdscr, y, x, prompt):
     maxY, maxX = stdscr.getmaxyx()
     stdscr.addstr(y, x, prompt)

@@ -17,16 +17,39 @@
 import socket, threading
 from time import sleep
 import asymmetric_encryption as ae
+import curses as c
+import ncurses_wrapper as nc
 
 # guess what this does
-def run_client(privateKey, publicKey):
+def run_client(stdscr, privateKey, publicKey):
+    maxY, maxX = stdscr.getmaxyx()
     # prompt user for host and port
-    host = input("host: ")
-    port = int(input("port: "))
+    nc.clear_line(stdscr, maxY//2, 0, 0)
+    nc.draw_text(stdscr,
+                 maxY//2,
+                 maxX//2-(len("host:")//2),
+                 "host:")
+    host = nc.get_input(stdscr,
+                        maxY//2+1,
+                        maxX//2-(len("host:")//2)-1,
+                        "")
+
+    nc.clear_block(stdscr, maxY//2, maxY//2+1, 0, 0)
+    nc.draw_text(stdscr,
+                 maxY//2,
+                 maxX//2-(len("port:")//2),
+                 "port:")
+    port = int(nc.get_input(stdscr,
+                            maxY//2+1,
+                            maxX//2-(len("port:")//2)-1,
+                            ""))
 
     # setup client socket
     clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientSocket.connect((host, port))
+
+    nc.clear_block(stdscr, maxY//2-1, maxY//2+1, 0, 0)
+    nc.draw_background(stdscr, host)
 
     # recieve the server Key
     serverKey = clientSocket.recv(4069).decode('utf-8')
@@ -40,9 +63,9 @@ def run_client(privateKey, publicKey):
     # Wait for the server to ping us
     recv_server(clientSocket, privateKey)
 
-    username_transfer(clientSocket, privateKey, serverKey)
+    username_transfer(stdscr, clientSocket, privateKey, serverKey)
 
-    group_transfer(clientSocket, privateKey, serverKey)
+    group_transfer(stdscr, clientSocket, privateKey, serverKey)
 
     # tell the server we are ready to start sending messages
     send_server(clientSocket, "START_CONNECTION", serverKey)
@@ -52,7 +75,8 @@ def run_client(privateKey, publicKey):
     send_messages(clientSocket, serverKey)
 
 
-def username_transfer(clientSocket, privateKey, serverKey):
+def username_transfer(stdscr, clientSocket, privateKey, serverKey):
+    maxY, maxX = stdscr.getmaxyx()
     # start the username transfer
     send_server(clientSocket, "START_NAME_TRANSFER", serverKey)
 
@@ -64,28 +88,74 @@ def username_transfer(clientSocket, privateKey, serverKey):
     #continue prompting for username until it meets server requirements
     while usernameStatus != "VALID":
 
-        print(f"username must be less than {maxUserLength} chars")
+        nc.clear_block(stdscr,
+                       maxY//2-1,
+                       maxY//2+1,
+                       0, 0)
+
+        nc.draw_text(stdscr,
+                     maxY//2-1,
+                     maxX//2-(len(f"username must be less than {maxUserLength} chars")//2),
+                     f"username must be less than {maxUserLength} chars")
 
         #prompt the user for their name
-        username = input("username: ")
+        nc.draw_text(stdscr,
+                     maxY//2,
+                     maxX//2-(len("username:")//2),
+                     "username:")
+        username = nc.get_input(stdscr,
+                                maxY//2+1,
+                                maxX//2-(len("username:")//2)-1,
+                                "")
+
 
         # Send the username to the server
         send_server(clientSocket, username, serverKey)
 
         time, usernameStatus = recv_server(clientSocket, privateKey)
-        print(usernameStatus)
 
 
-def group_transfer(clientSocket, privateKey, serverKey):
+def group_transfer(stdscr, clientSocket, privateKey, serverKey):
+    maxY, maxX = stdscr.getmaxyx()
+
     send_server(clientSocket, "START_GROUP_SELECT", serverKey) # 1
 
     time, groups = recv_server(clientSocket, privateKey) # 2
 
-    print(f"there are {len(groups)} groups:")
-    print(groups)
+    nc.clear_block(stdscr,
+                   maxY//2-1,
+                   maxY//2+1,
+                   0,
+                   0)
+
+    nc.draw_text_overflow(stdscr,
+                          maxY//2-3,
+                          maxX//2-(len(f"there are {len(groups) if len(groups) != 0 else 'no available'} groups")//2),
+                          f"there are {len(groups) if len(groups) != 0 else 'no available'} groups")
+
+    row, column = 0, 0
+    for i in range(len(groups)):
+        row = i//3
+        column = i%3
+
+        nc.draw_text(stdscr,
+                     maxY//2-2+row,
+                     maxX//2+(column*20-20)-(len(groups[i])//2),
+                     groups[i])
+
+    stdscr.refresh()
 
     while 1:
-        action = input("do you want to [join] or [create] a group (join): ")
+        nc.draw_text(stdscr,
+                     maxY//2+row,
+                     maxX//2-(len("do you want to [join] or [create] a group (join):")//2),
+                     "do you want to [join] or [create] a group (join):")
+
+        action = nc.get_input(stdscr,
+                       maxY//2+row+1,
+                       maxX//2-4,
+                       "")
+        #TODO continue converting this to tui
         if action != "create":
             send_server(clientSocket, "join", serverKey) # 3
 
@@ -191,11 +261,23 @@ def recv_server(socket, privateKey):
 
 
 if __name__ == "__main__":
-    print("starting client...")
-    # generate the keypair
-    print("generating keypairs...")
+    try:
+        stdscr = c.initscr()
+        c.noecho()
+        maxY, maxX = stdscr.getmaxyx()
 
-    privateKey, publicKey = ae.generate_keys(4096)
+        nc.draw_background(stdscr)
 
-    print("succes!")
-    run_client(privateKey, publicKey)
+        nc.draw_text(stdscr,
+                     maxY//2,
+                     maxX//2-(len("generating keypairs...")//2),
+                     "generating keypairs...")
+
+        stdscr.refresh()
+
+        privateKey, publicKey = ae.generate_keys(4096)
+
+        run_client(stdscr, privateKey, publicKey)
+
+    finally:
+        c.endwin()

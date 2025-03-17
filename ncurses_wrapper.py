@@ -116,6 +116,14 @@ def get_input(stdscr, y, x, prompt):
     return response
 
 
+def wait_for_enter(stdscr):
+    while 1:
+        ch = stdscr.getch()
+        if ch == 10:
+            break
+    return
+
+
 def draw_text(stdscr, y, x, text):
     maxY, maxX = stdscr.getmaxyx()
     if maxX-x-3 <= 0:

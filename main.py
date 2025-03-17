@@ -16,9 +16,12 @@
 
 import socket, threading
 from time import sleep
+from datetime import datetime
 import asymmetric_encryption as ae
 import curses as c
 import ncurses_wrapper as nc
+
+messages = [] #insane
 
 # guess what this does
 def run_client(stdscr, privateKey, publicKey):
@@ -70,9 +73,13 @@ def run_client(stdscr, privateKey, publicKey):
     # tell the server we are ready to start sending messages
     send_server(clientSocket, "START_CONNECTION", serverKey)
 
+    nc.clear_block(stdscr,
+                   4, maxY-4,
+                   0, 0)
+
     #start sending messages
-    threading.Thread(target=recieve_messages, args=(clientSocket, privateKey,), daemon=True).start()
-    send_messages(clientSocket, serverKey)
+    threading.Thread(target=recieve_messages, args=(stdscr, clientSocket, privateKey,), daemon=True).start()
+    send_messages(stdscr, clientSocket, serverKey)
 
 
 def username_transfer(stdscr, clientSocket, privateKey, serverKey):
@@ -155,14 +162,24 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                        maxY//2+row+1,
                        maxX//2-4,
                        "")
-        #TODO continue converting this to tui
+
+        nc.clear_block(stdscr, maxY//2-3, maxY//2+row+2, 0, 0)
+
         if action != "create":
             send_server(clientSocket, "join", serverKey) # 3
 
             time, status = recv_server(clientSocket, privateKey) # 4
 
             try:
-                group = input("which group would you like to join?: ")
+                nc.draw_text(stdscr,
+                             maxY//2-1,
+                             maxX//2-(len("which group would you like to join?:")//2),
+                             "which group would you like to join?:")
+
+                group = nc.get_input(stdscr,
+                                     maxY//2,
+                                     maxX//2-(len("which group would you like to join?:")//2),
+                                     "")
             except KeyboardInterrupt:
                 send_server(clientSocket, 0x01, serverKey) # 5
                 recv_server(clientSocket, privateKey) # 6
@@ -172,22 +189,54 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
             send_server(clientSocket, group, serverKey) # 5
 
             time, status = recv_server(clientSocket, privateKey) # 6
+
+            nc.clear_block(stdscr,
+                           maxY//2-2, maxY//2+2,
+                           0, 0)
+
             if status == "BAD":
-                print(f"invalid group {group}")
+                nc.draw_text(stdscr,
+                             maxY//2,
+                             maxX//2-(len(f"invalid group {group}")//2),
+                             f"invalid group {group}")
+                nc.wait_for_enter(stdscr)
+                nc.clear_line(stdscr,
+                              maxY//2,
+                              0,0)
                 continue
 
             elif status == "NO PASSWORD":
-                print("this server does not have a password")
-                print("proceed with caution")
+                nc.draw_text(stdscr,
+                             maxY//2,
+                             maxX//2-(len("this server does not have a password")//2),
+                             "this server does not have a password")
+                nc.draw_text(stdscr,
+                             maxY//2+1,
+                             maxX//2-(len("proceed with caution")//2),
+                             "proceed with caution")
+                nc.wait_for_enter(stdscr)
+                nc.clear_block(stdscr,
+                               maxY//2, maxY//2+1,
+                               0, 0)
 
             else:
-                password = input("password: ")
+                nc.draw_text(stdscr,
+                             maxY//2,
+                             maxX//2-(len("password: ")//2),
+                             "password: ")
+                password = nc.get_input(stdscr,
+                                        maxY//2+1,
+                                        maxX//2-(len("password: ")//2),
+                                        "")
                 password = ae.generate_hash(password)
                 send_server(clientSocket, password, serverKey)# 7
 
                 time, status = recv_server(clientSocket, privateKey) # 8
                 if status == "INCORRECT":
-                    print("password is incorrect")
+                    nc.draw_text(stdscr,
+                                 maxY//2,
+                                 maxX//2-(len("password is incorrect")),
+                                 "password is incorrect")
                     continue
 
             break
@@ -198,21 +247,41 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
             recv_server(clientSocket, privateKey) # 4
 
             try:
-                group = input("enter name of group: ")
+                nc.draw_text(stdscr,
+                             maxY//2-1,
+                             maxX//2-(len("enter name of group:")//2),
+                             "enter name of group:")
+
+                group = nc.get_input(stdscr,
+                                     maxY//2,
+                                     maxX//2-(len("enter name of group:")//2-1),
+                                     "")
             except KeyboardInterrupt:
                 send_server(clientSocket, 0x01, serverKey) # 5
                 recv_server(clientSocket, privateKey) # 6
-                print('\n')
                 continue
 
             send_server(clientSocket, group, serverKey) # 5
 
             time, status = recv_server(clientSocket, privateKey) # 6
             if status == "BAD":
-                print("group already exists")
+                nc.draw_text(stdscr, maxY//2-3,
+                             maxX//2-(len("group already exists")//2),
+                             "group already exists")
                 continue
 
-            password = input("password: ")
+            if status == "TOO LONG":
+                nc.draw_text(stdscr, maxY//2-3,
+                             maxX//2-(len("group name is too long")//2),
+                             "group name is too long")
+                continue
+
+            nc.clear_block(stdscr, maxY//2-1, maxY//2+1, 0, 0)
+
+            password = nc.get_input(stdscr,
+                                    maxY//2,
+                                    maxX//2-(len("password:")//2),
+                                    "password:")
             if password != "":
                 password = ae.generate_hash(password)
             send_server(clientSocket, password, serverKey)# 7
@@ -222,7 +291,8 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
 
 
 # listen for messages from the server
-def recieve_messages(client, privateKey):
+def recieve_messages(stdscr, client, privateKey):
+    global messages
     while 1:
         # recieve a 4096 bit block of data and decrypt it
         time, message = recv_server(client, privateKey)
@@ -232,19 +302,25 @@ def recieve_messages(client, privateKey):
             quit()
 
         # print it to the screen
-        print(time, message)
+        messages.append(f"{datetime.now().strftime('%H:%M:%S')}  {message}")
+        messages = nc.draw_message(stdscr, messages)
+        stdscr.refresh()
 
 
 # keep asking for and sending messages to server
-def send_messages(client, serverKey):
+def send_messages(stdscr, client, serverKey):
+    global messages
     while 1:
         # get input and encrypt it using the servers public key
-        message = input()
+        message = datetime.now().strftime('%H:%M:%S') + "  " + "you: " + nc.get_input(stdscr, maxY-1, 0, "message:")
         if bytes(message, 'utf-8') == b'':
-            print("your message has been blocked because it is empty")
+            continue
 
         # send the message to the server
         send_server(client, message, serverKey)
+        messages.append(message)
+        messages = nc.draw_message(stdscr, messages)
+        nc.clear_line(stdscr, maxY-1, 0, maxX-1)
 
 
 # Send the specified message t the server, using its key as encryption

@@ -26,6 +26,7 @@ messages = [] #insane
 # guess what this does
 def run_client(stdscr, privateKey, publicKey):
     maxY, maxX = stdscr.getmaxyx()
+    
     # prompt user for host and port
     nc.clear_line(stdscr, maxY//2, 0, 0)
     nc.draw_text(stdscr,
@@ -66,8 +67,10 @@ def run_client(stdscr, privateKey, publicKey):
     # Wait for the server to ping us
     recv_server(clientSocket, privateKey)
 
+    # start the username protocol
     username_transfer(stdscr, clientSocket, privateKey, serverKey)
 
+    # start the group protocol
     group_transfer(stdscr, clientSocket, privateKey, serverKey)
 
     # tell the server we are ready to start sending messages
@@ -118,17 +121,21 @@ def username_transfer(stdscr, clientSocket, privateKey, serverKey):
 
         # Send the username to the server
         send_server(clientSocket, username, serverKey)
-
+        
+        # get the status
         time, usernameStatus = recv_server(clientSocket, privateKey)
 
 
 def group_transfer(stdscr, clientSocket, privateKey, serverKey):
     maxY, maxX = stdscr.getmaxyx()
 
+    # tell the server that we want to send something
     send_server(clientSocket, "START_GROUP_SELECT", serverKey) # 1
 
+    # recieve the current open groups
     time, groups = recv_server(clientSocket, privateKey) # 2
 
+    # boilerplate text
     nc.clear_block(stdscr,
                    maxY//2-1,
                    maxY//2+1,
@@ -140,6 +147,7 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                           maxX//2-(len(f"there are {len(groups) if len(groups) != 0 else 'no available'} groups")//2),
                           f"there are {len(groups) if len(groups) != 0 else 'no available'} groups")
 
+    # display the groups
     row, column = 0, 0
     for i in range(len(groups)):
         row = i//3
@@ -153,6 +161,7 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
     stdscr.refresh()
 
     while 1:
+        # prompt the user for an action
         nc.draw_text(stdscr,
                      maxY//2+row,
                      maxX//2-(len("do you want to [join] or [create] a group (join):")//2),
@@ -164,13 +173,15 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                        "")
 
         nc.clear_block(stdscr, maxY//2-3, maxY//2+row+2, 0, 0)
-
+        
         if action != "create":
+            #tell the server we want to join
             send_server(clientSocket, "join", serverKey) # 3
 
             time, status = recv_server(clientSocket, privateKey) # 4
 
             try:
+                # prompt for group
                 nc.draw_text(stdscr,
                              maxY//2-1,
                              maxX//2-(len("which group would you like to join?:")//2),
@@ -181,11 +192,13 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                                      maxX//2-(len("which group would you like to join?:")//2),
                                      "")
             except KeyboardInterrupt:
+                # upon keyboardinterrupt, go back to the previous menu
                 send_server(clientSocket, 0x01, serverKey) # 5
                 recv_server(clientSocket, privateKey) # 6
                 print('\n')
                 continue
 
+            # send the group to the server
             send_server(clientSocket, group, serverKey) # 5
 
             time, status = recv_server(clientSocket, privateKey) # 6
@@ -195,6 +208,7 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                            0, 0)
 
             if status == "BAD":
+                # if the status doesn't return ok, repeat the process
                 nc.draw_text(stdscr,
                              maxY//2,
                              maxX//2-(len(f"invalid group {group}")//2),
@@ -206,6 +220,7 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                 continue
 
             elif status == "NO PASSWORD":
+                # warn the user about the danger in group
                 nc.draw_text(stdscr,
                              maxY//2,
                              maxX//2-(len("this server does not have a password")//2),
@@ -220,6 +235,7 @@ def group_transfer(stdscr, clientSocket, privateKey, serverKey):
                                0, 0)
 
             else:
+                # succes, prompt for password
                 nc.draw_text(stdscr,
                              maxY//2,
                              maxX//2-(len("password: ")//2),
@@ -338,10 +354,12 @@ def recv_server(socket, privateKey):
 
 if __name__ == "__main__":
     try:
+        # screen initialization
         stdscr = c.initscr()
         c.noecho()
         maxY, maxX = stdscr.getmaxyx()
 
+        # draw the background
         nc.draw_background(stdscr)
 
         nc.draw_text(stdscr,
@@ -351,8 +369,10 @@ if __name__ == "__main__":
 
         stdscr.refresh()
 
+        # generate the asymmetrical keypair
         privateKey, publicKey = ae.generate_keys(4096)
 
+        # start the client
         run_client(stdscr, privateKey, publicKey)
 
     finally:

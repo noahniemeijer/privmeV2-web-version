@@ -1,17 +1,35 @@
 from curses import *
 
 def draw_background(stdscr, connectedIP=None):
+    """
+    draw the background for the tui
+
+    stdscr: curses.screen, the screen you want the background to be drawn on
+    connectedIP: string, the ip the client has connected to
+    """
     maxY, maxX = stdscr.getmaxyx()
     draw_top_bar(stdscr, maxX, connectedIP)
     draw_lines(stdscr, maxY)
 
 
 def draw_lines(stdscr, maxY):
+    """
+    draw the top and bottom lines of the tui
+
+    stdscr: curses.screen, the screen you want the background to be drawn on
+    maxY: int, the first non writable index on the Y axis
+    """
     draw_line(stdscr, 2, 0, 0)
     draw_line(stdscr, maxY-2, 0, 0)
 
 
 def draw_top_bar(stdscr, maxX, connectedIP):
+    """
+    draw the top bar of the background
+
+    stdscr: curses.screen, the screen you want the background to be drawn on
+    maxX, the first non writable index on the X axis
+    """
     neededLength = len("connected to 255.255.255 " +
                        "privme tui v2 ")
 

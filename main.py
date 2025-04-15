@@ -328,12 +328,13 @@ def send_messages(stdscr, client, serverKey):
     global messages
     while 1:
         # get input and encrypt it using the servers public key
-        message = datetime.now().strftime('%H:%M:%S') + "  " + "you: " + nc.get_input(stdscr, maxY-1, 0, "message:")
+        message = nc.get_input(stdscr, maxY-1, 0, "message:")
         if bytes(message, 'utf-8') == b'':
             continue
 
         # send the message to the server
         send_server(client, message, serverKey)
+        message = datetime.now().strftime('%H:%M:%S') + "  " + "you: " + message
         messages.append(message)
         messages = nc.draw_message(stdscr, messages)
         nc.clear_line(stdscr, maxY-1, 0, maxX-1)

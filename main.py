@@ -349,6 +349,7 @@ def send_server(socket, message, serverKey):
 # get and decrypt a message from the server
 def recv_server(socket, privateKey):
     message = socket.recv(4096)
+    if message == 0x10: raise Exception("the server quit unexpectedly")
     time, message = ae.decrypt_message(message, privateKey)
     return time, message
 

@@ -20,7 +20,7 @@ import asymmetric_encryption as ae
 
 # Some server constants
 HOST = "0.0.0.0"
-PORT = 5556
+PORT = 5555
 USERNAME_MAX_LENGTH = 20
 USERNAME_ALLOW_SPACES = False
 SERVER_VERSION = 0.0
@@ -324,4 +324,10 @@ def run_server():
 
 
 if __name__ == "__main__":
-    run_server()
+    try:
+        run_server()
+    finally:
+        print("server quit")
+        for i in clients:
+            print(f"removing {i}")
+            i.send(bytes(0x10))

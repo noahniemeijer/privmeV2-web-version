@@ -14,7 +14,8 @@
 # You should have recieved a copy of the GNU General Public License
 # along with PrivMe. If not, see <https://www.gnu.org/licenses/>.
 
-import socket, threading
+import socket
+import threading
 from time import sleep
 import asymmetric_encryption as ae
 
@@ -26,15 +27,17 @@ USERNAME_ALLOW_SPACES = False
 SERVER_VERSION = 0.0
 
 # Server variables
-clients = []    # These variables are synced
-keys = []       # This means users[1] corresponds to keys[1]
+clients = []  # These variables are synced
+keys = []  # This means users[1] corresponds to keys[1]
 users = []
-groups = []     # This one is complicated, it is a list of lists, every group is stored as a
-                # seperate list, and indexed as groups[i][j], where i is the index of the group
-                # and j is the index of the client
-groupNames = [] # This list simply contains the names of all the groups, in order
-                # meaning groupNames[1] is the name of group[1]
-groupHashes = []# Hahed passwords for each group
+groups = (
+    []
+)  # This one is complicated, it is a list of lists, every group is stored as a
+# seperate list, and indexed as groups[i][j], where i is the index of the group
+# and j is the index of the client
+groupNames = []  # This list simply contains the names of all the groups, in order
+# meaning groupNames[1] is the name of group[1]
+groupHashes = []  # Hahed passwords for each group
 
 
 class message_reciever:
@@ -50,7 +53,7 @@ class message_reciever:
                 print("woopsie someone got kicked")
                 return
             self.messageCache.append(message)
-            if message == b'':
+            if message == b"":
                 break
 
 
@@ -59,7 +62,8 @@ def send_message(message, sender=None, inclusive=False):
     for group in groups:
         if sender in group:
             for i in group:
-                if i == sender and not inclusive: continue
+                if i == sender and not inclusive:
+                    continue
 
                 clientId = clients.index(i)
                 clientKey = keys[clientId]
@@ -81,6 +85,9 @@ def handle_client(client, publicKey, privateKey, clientKey):
     message = ae.encrypt_message("OK", clientKey)
     client.send(message)
 
+    group = None
+    username = None
+
     # Start the handshake
     Recieving = False
 
@@ -88,11 +95,16 @@ def handle_client(client, publicKey, privateKey, clientKey):
         while not Recieving:
             # Setup the connection as per the clients requests
             message = client.recv(4096)
-            time, message = ae.decrypt_message(message, privateKey)
+            _, message = ae.decrypt_message(message, privateKey)
 
             if message == "START_CONNECTION":
                 # Start recieving messages from client
                 Recieving = True
+                if group is None or username is None:
+                    info = ae.encrypt_message("BAD", publicKey)
+                    client.send(info)
+                    remove_client(client, username)
+
                 groupId = groups[groupNames.index(group)][0]
                 send_message(f"{username} Joined the chat", groupId, True)
 
@@ -105,14 +117,14 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 while not usernameAccepted:
                     # recieve the username from the user
                     username = client.recv(4096)
-                    if username == b'':
+                    if username == b"":
                         return
                     time, username = ae.decrypt_message(username, privateKey)
 
                     status = ae.encrypt_message("VALID", clientKey)
                     usernameAccepted = True
 
-                    #check if the username is valid
+                    # check if the username is valid
                     if len(username) > USERNAME_MAX_LENGTH:
                         status = ae.encrypt_message("INVALID", clientKey)
                         usernameAccepted = False
@@ -132,51 +144,53 @@ def handle_client(client, publicKey, privateKey, clientKey):
 
             elif message == "START_GROUP_SELECT":
                 info = ae.encrypt_message(groupNames, clientKey)
-                client.send(info) # 2
+                client.send(info)  # 2
 
                 while 1:
 
-                    action = client.recv(4096) # 3
-                    if action == b'':
+                    action = client.recv(4096)  # 3
+                    if action == b"":
                         remove_client(client, username)
                         return
                     time, action = ae.decrypt_message(action, privateKey)
 
                     status = ae.encrypt_message("OK", clientKey)
-                    client.send(status) # 4
+                    client.send(status)  # 4
 
                     if action == "join":
-                        group = client.recv(4096) # 5
+                        group = client.recv(4096)  # 5
                         time, group = ae.decrypt_message(group, privateKey)
                         if group == 0x01:
                             status = ae.encrypt_message("OK", clientKey)
-                            client.send(status) #6
+                            client.send(status)  # 6
                             continue
 
                         if group not in groupNames:
                             status = ae.encrypt_message("BAD", clientKey)
-                            client.send(status) # 6
+                            client.send(status)  # 6
                             continue
 
                         groupId = groupNames.index(group)
 
                         if groupHashes[groupId] == "":
                             status = ae.encrypt_message("NO PASSWORD", clientKey)
-                            client.send(status) # 6
+                            client.send(status)  # 6
                         else:
                             status = ae.encrypt_message("OK", clientKey)
 
-                            client.send(status) # 6
+                            client.send(status)  # 6
 
-                            password = client.recv(4096) # 7
-                            if password == b'':
+                            password = client.recv(4096)  # 7
+                            if password == b"":
                                 remove_client(client, username)
                                 return
                             time, password = ae.decrypt_message(password, privateKey)
 
+                            print(password)
+                            print(groupHashes, groupId)
                             if groupHashes[groupId] == password:
                                 status = ae.encrypt_message("OK", clientKey)
-                                client.send(status) # 8
+                                client.send(status)  # 8
                             else:
                                 status = ae.encrypt_message("INCORRECT", clientKey)
                                 client.send(status)
@@ -186,28 +200,28 @@ def handle_client(client, publicKey, privateKey, clientKey):
                         break
 
                     elif action == "create":
-                        group = client.recv(4096) # 5
+                        group = client.recv(4096)  # 5
                         time, group = ae.decrypt_message(group, privateKey)
                         if group == 0x01:
                             status = ae.encrypt_message("OK", clientKey)
-                            client.send(status) #6
+                            client.send(status)  # 6
                             continue
 
                         if group in groupNames:
                             status = ae.encrypt_message("BAD", clientKey)
-                            client.send(status) # 6
+                            client.send(status)  # 6
                             continue
 
                         if len(group) > 20:
                             status = ae.encrypt_message("TOO LONG", clientKey)
-                            client.send(status) #6
+                            client.send(status)  # 6
                             continue
 
                         status = ae.encrypt_message("OK", clientKey)
-                        client.send(status) # 6
+                        client.send(status)  # 6
 
-                        password = client.recv(4096) # 7
-                        if password == b'':
+                        password = client.recv(4096)  # 7
+                        if password == b"":
                             remove_client(client, username)
                             return
                         time, password = ae.decrypt_message(password, privateKey)
@@ -231,19 +245,18 @@ def handle_client(client, publicKey, privateKey, clientKey):
                 print("SPAM DETECTED")
                 status = ae.encrypt_message("SPAM", clientKey)
                 client.send(status)
-                cache.messageCache = [b'']
+                cache.messageCache = [b""]
             message = cache.messageCache[0]
-
 
             # If the message is completely empty, (this occurs when someone
             # Leaves), remove the user from all lists, and break the
             # connection to prevent ERROR 32: broken pipe
-            if message == b'':
+            if message == b"":
                 remove_client(client, username)
                 return
 
             time, message = ae.decrypt_message(message, privateKey)
-            if bytes(message, 'utf-8') == b'':
+            if bytes(message, "utf-8") == b"":
                 cache.messageCache.pop(0)
                 continue
 
@@ -268,18 +281,18 @@ def remove_client(client, username):
             groupId = groups.index(i)
             break
 
-
-    if groupId != None:
+    if groupId is not None:
         clientId = groups[groupId].index(client)
         groups[groupId].pop(clientId)
 
         if groups[groupId] == []:
             groups.pop(groupId)
             groupNames.pop(groupId)
+            groupHashes.pop(groupId)
 
     client.close()
 
-    if groupId != None:
+    if groupId is not None:
         send_message(f"{username} Left the chat", groupId, True)
 
 
@@ -303,7 +316,7 @@ def run_server():
 
     while 1:
         # Recieve clients
-        client, address = serverSocket.accept()
+        client, _ = serverSocket.accept()
 
         # Register the user
         clients.append(client)
@@ -313,14 +326,15 @@ def run_server():
 
         # Recieve clients public key and decrypt it
         clientKey = client.recv(4096)
-        time, clientKey = ae.decrypt_message(clientKey, privateKey)
+        _, clientKey = ae.decrypt_message(clientKey, privateKey)
 
         # Add the key to the list of keys
         keys.append(clientKey)
 
         # Start a worker thread that will handle this client
-        threading.Thread(target=handle_client, args=(client, publicKey, privateKey, clientKey)).start()
-
+        threading.Thread(
+            target=handle_client, args=(client, publicKey, privateKey, clientKey)
+        ).start()
 
 
 if __name__ == "__main__":

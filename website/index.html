@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>PrivMe Chat</title>
+</head>
+<body>
+    <div id="chat-container">
+        <h1>PrivMe Web Chat</h1>
+
+        <div id="messages">
+            <p class="system-message">Connecting to chat server...</p>
+        </div>
+
+        <div id="prompt-area">
+            <p id="status-message">Connecting to gateway...</p>
+            
+            <div id="username-input" style="display: none;">
+                <p>Choose a username: (max <span id="username-max-length"></span> characters):</p>
+                <input type="text" id="username-field" placeholder="Username">
+                <button id="set-username-button">Continue</button>
+            </div>
+
+            <div id="group-input" style="display: none;">
+                <p>Choose a group:</p>
+                <select id="group-select"></select>
+                <input type="password" id="join-group-password-field" placeholder="Password (if needed)">
+                <button id="join-group-button">Join Group</button>
+                <hr>
+                <p>Or create a new one:</p>
+                <input type="text" id="new-group-name" placeholder="Nieuwe groepsnaam">
+                <input type="password" id="new-group-password" placeholder="Password (optional)">
+                <button id="create-group-button">Create Group</button>
+            </div>
+
+            <div id="chat-input" style="display: none;">
+                <input type="text" id="message-field" placeholder="Type your message...">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
